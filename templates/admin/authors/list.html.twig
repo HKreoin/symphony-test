@@ -1,0 +1,47 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Список авторов{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Авторы <span class="badge bg-secondary">{{ authors.getTotalItemCount }}</span></h1>
+    <a href="{{ path('admin_authors_create') }}" class="btn btn-primary">Добавить автора</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Имя</th>
+                <th>Количество книг</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for author in authors %}
+            <tr>
+                <td>{{ author.id }}</td>
+                <td>{{ author.name }}</td>
+                <td>{{ author.bookCount }}</td>
+                <td>
+                    <a href="{{ path('admin_authors_edit', {id: author.id}) }}" class="btn btn-sm btn-outline-primary">Редактировать</a>
+                    <form method="post" action="{{ path('admin_authors_delete', {id: author.id}) }}" class="d-inline" onsubmit="return confirm('Вы уверены?')">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center">Авторы не найдены</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# Пагинация #}
+<div class="mt-4">
+    {{ knp_pagination_render(authors) }}
+</div>
+{% endblock %}

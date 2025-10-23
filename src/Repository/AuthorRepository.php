@@ -31,13 +31,17 @@ class AuthorRepository extends ServiceEntityRepository
     //        ;
     //    }
 
-    //    public function findOneBySomeField($value): ?Author
-    //    {
-    //        return $this->createQueryBuilder('a')
-    //            ->andWhere('a.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    /**
+     * Получить всех авторов с количеством книг
+     */
+    public function findAllWithBookCount(): array
+    {
+        return $this->createQueryBuilder('a')
+            ->select('a.id, a.name, COUNT(b.id) as bookCount')
+            ->leftJoin('a.books', 'b')
+            ->groupBy('a.id')
+            ->orderBy('a.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }
