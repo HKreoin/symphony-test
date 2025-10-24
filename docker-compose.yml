@@ -26,7 +26,6 @@ services:
       - ./:/var/www
       - nginx_conf:/etc/nginx/conf.d
       - certbot_certs:/etc/letsencrypt
-      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - app
     networks:
