@@ -24,6 +24,8 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 
 # Копирование кода приложения
 COPY . /var/www
+# Создание необходимых папок для Symfony
+RUN mkdir -p /var/www/var/cache /var/www/var/log
 # Установка прав для Symfony
 RUN chown -R www-data:www-data \
     /var/www/var \
