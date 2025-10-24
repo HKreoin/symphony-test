@@ -27,94 +27,98 @@ class GenerateBooksCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        ini_set('memory_limit', '3072M');
-
         $io = new SymfonyStyle($input, $output);
         
-        $io->title('Создание тестовых данных');
-        $io->info('Создаем 3 авторов и по 100,000 книг для каждого');
+        $io->title('Создание случайного автора и книг');
+        $io->info('Создаем случайного автора и 100,000 книг для него');
 
-        $io->section('1. Очистка старых данных...');
-        $this->clearData();
-        $io->success('Старые данные удалены');
+        // Создаем случайного автора
+        $author = $this->createRandomAuthor($io);
+        
+        // Создаем книги для этого автора
+        $this->createBooksForAuthor($author, $io);
 
-        $io->section('2. Создание авторов...');
-        $authors = $this->createAuthors();
-        $io->success('Авторы созданы: ' . implode(', ', array_map(fn($a) => $a->getName(), $authors)));
-
-        $io->section('3. Создание книг...');
-        $this->createBooks($authors, $io);
-
-        $io->success('Готово! Создано 3 автора и 300,000 книг');
+        $io->success("Готово! Создан автор '{$author->getName()}' и 100,000 книг");
         return Command::SUCCESS;
     }
 
-    private function clearData(): void
+    private function createRandomAuthor(SymfonyStyle $io): Author
     {
-        $this->entityManager->createQuery('DELETE FROM App\Entity\Book')->execute();
-        $this->entityManager->createQuery('DELETE FROM App\Entity\Author')->execute();
+        $firstNames = ['Александр', 'Михаил', 'Лев', 'Фёдор', 'Антон', 'Николай', 'Иван', 'Сергей', 'Владимир', 'Дмитрий'];
+        $lastNames = ['Пушкин', 'Толстой', 'Достоевский', 'Чехов', 'Гоголь', 'Тургенев', 'Булгаков', 'Набоков', 'Солженицын', 'Пастернак'];
+        
+        $firstName = $firstNames[array_rand($firstNames)];
+        $lastName = $lastNames[array_rand($lastNames)];
+        $authorName = $firstName . ' ' . $lastName;
+        
+        $author = new Author();
+        $author->setName($authorName);
+        
+        $this->entityManager->persist($author);
         $this->entityManager->flush();
+        
+        $io->success("Создан автор: {$authorName}");
+        return $author;
     }
 
-    private function createAuthors(): array
-    {
-        $names = [
-            'Лев Толстой',
-            'Фёдор Достоевский', 
-            'Антон Чехов'
-        ];
-
-        $authors = [];
-        foreach ($names as $name) {
-            $author = new Author();
-            $author->setName($name);
-            $this->entityManager->persist($author); // Готовим к сохранению
-            $authors[] = $author;
-        }
-
-        $this->entityManager->flush(); // Сохраняем в базу
-        return $authors;
-    }
-
-    private function createBooks(array $authors, SymfonyStyle $io): void
+    private function createBooksForAuthor(Author $author, SymfonyStyle $io): void
     {
         $booksPerAuthor = 100000;
-        $batchSize = 10000;
+        $batchSize = 2000;
 
-        $totalBooks = count($authors) * $booksPerAuthor;
-        $progressBar = $io->createProgressBar($totalBooks);
+        $io->section('Создание книг...');
+        
+        $progressBar = $io->createProgressBar($booksPerAuthor);
+        $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %memory:6s% %message%');
         $progressBar->start();
 
-        $titles = ['Книга', 'Роман', 'Повесть', 'Рассказ', 'Поэма'];
-        $descriptions = ['Описание книги', 'Интересная история', 'Классика литературы'];
+        $titles = ['Книга', 'Роман', 'Повесть', 'Рассказ', 'Поэма', 'Стихи', 'Драма', 'Комедия', 'Трагедия', 'Сказка'];
+        $descriptions = ['Описание книги', 'Интересная история', 'Классика литературы', 'Захватывающий сюжет', 'Философское произведение'];
 
-        foreach ($authors as $author) {
-            $authorId = $author->getId();
+        $batchCount = 0;
+
+        // Создаем книги батчами
+        for ($batch = 0; $batch < $booksPerAuthor; $batch += $batchSize) {
+            $currentBatchSize = min($batchSize, $booksPerAuthor - $batch);
             
-            // Создаем книги батчами для каждого автора
-            for ($batch = 0; $batch < $booksPerAuthor; $batch += $batchSize) {
-                $currentBatchSize = min($batchSize, $booksPerAuthor - $batch);
+            // Загружаем автора ОДИН раз на батч
+            $currentAuthor = $this->entityManager->find(Author::class, $author->getId());
+            
+            for ($i = 0; $i < $currentBatchSize; $i++) {
+                $book = new Book();
+                $book->setTitle($titles[array_rand($titles)] . ' ' . ($batch + $i + 1));
+                $book->setDescription($descriptions[array_rand($descriptions)]);
+                $book->setAuthor($currentAuthor);
                 
-                // Загружаем автора ОДИН раз на батч
-                $currentAuthor = $this->entityManager->find(Author::class, $authorId);
-                
-                for ($i = 0; $i < $currentBatchSize; $i++) {
-                    $book = new Book();
-                    $book->setTitle($titles[array_rand($titles)] . ' ' . ($batch + $i + 1));
-                    $book->setDescription($descriptions[array_rand($descriptions)]);
-                    $book->setAuthor($currentAuthor);
-                    
-                    $this->entityManager->persist($book);
-                    $progressBar->advance();
-                }
-                
-                // Сохраняем батч и очищаем память
-                $this->entityManager->flush();
-                $this->entityManager->clear();
+                $this->entityManager->persist($book);
+                $progressBar->advance();
             }
+            
+            // Сохраняем батч и очищаем память
+            $this->entityManager->flush();
+            $this->entityManager->clear();
+            
+            // Обновляем информацию о памяти в прогресс-баре
+            $batchCount++;
+            $memoryUsage = $this->formatBytes(memory_get_usage(true));
+            $peakMemory = $this->formatBytes(memory_get_peak_usage(true));
+            $progressBar->setMessage("Батч {$batchCount} | Пик: {$peakMemory}");
         }
 
         $progressBar->finish();
         $io->newLine(2);
+
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+        
+        $bytes /= (1 << (10 * $pow));
+        
+        return round($bytes, 2) . ' ' . $units[$pow];
     }
 }
